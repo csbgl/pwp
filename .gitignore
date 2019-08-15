@@ -1,4 +1,4 @@
-!pwp/*.go
-pwp/*
-!pwpc/*.go
-pwpc/*
+/pwp/*
+!/pwp/*.go
+/pwpc/*
+!/pwpc/*.go
