@@ -36,8 +36,9 @@ type OpSys struct {
 }
 
 const (
-	osx = "darwin"
-	win = "windows"
+	osx   = "darwin"
+	win   = "windows"
+	linux = "linux"
 )
 
 func getOS() OpSys {
@@ -50,6 +51,13 @@ func getOS() OpSys {
 		opsys.LibUserDir = usr.HomeDir + "/.pwp/"
 		opsys.PrivUser = "root"
 		opsys.CurrentUser = usr.Username
+	case linux:
+		opsys.OSName = linux
+		opsys.LibDir = "/usr/local/pwp/"
+		opsys.LibUserDir = usr.HomeDir + "/.pwp/"
+		opsys.PrivUser = "root"
+		opsys.CurrentUser = usr.Username
+
 	}
 	return opsys
 }
@@ -100,18 +108,31 @@ func IsInitialized(opsys OpSys) bool {
 	return true
 }
 
-func getMachineID(os string) ([]byte, error) {
+func getMachineID(_os string) ([]byte, error) {
 	var result string
-	switch os {
+	var byteresult [32]byte
+	switch _os {
 	case osx:
 		re := regexp.MustCompile("UUID.*")
 		out, err := exec.Command("ioreg", "-rd1", "-c", "IOPlatformExpertDevice").Output()
 		if err != nil {
-			return nil, errors.New(err.Error())
+			return nil, err
 		}
 		result = re.FindString(string(out))
+		byteresult = sha256.Sum256([]byte(result))
+
+	case linux:
+		b, err := ioutil.ReadFile("/var/lib/dbus/machine-id")
+		if os.IsNotExist(err) {
+			b, err = ioutil.ReadFile("/etc/machine-id")
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
+		byteresult = sha256.Sum256(b)
 	}
-	byteresult := sha256.Sum256([]byte(result))
 	return byteresult[:], nil
 }
 
