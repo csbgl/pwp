@@ -15,8 +15,9 @@ type i struct {
 	AsUser bool `short:"r" long:"asuser" description:"Initialize as user"`
 }
 type add struct {
-	AsUser bool   `short:"r" long:"asuser" description:"Initialize as user"`
-	User   string `short:"u" long:"user" value-name:"USER" description:"Password is restricted to <user>" required:"yes"`
+	AsUser   bool   `short:"r" long:"asuser" description:"Initialize as user"`
+	Name     string `short:"n" long:"name" value-name:"NAME" description:"NAME identifying the object" required:"yes"`
+	FileName string `short:"f" long:"file" value-name:"FN" description:"File name where the passwords are stored"`
 }
 
 func exist(path string) bool {
@@ -46,6 +47,11 @@ func (c *i) Execute(args []string) error {
 }
 
 func (c *add) Execute(args []string) error {
+	err := pwp.AddPW(c.AsUser, c.FileName, c.Name)
+	if err != nil {
+		fmt.Println("Error adding password: ", err)
+	}
+
 	return nil
 }
 
