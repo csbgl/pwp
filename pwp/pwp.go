@@ -212,7 +212,13 @@ func AddPW(AsUser bool, FileName string, ObjectName string) error {
 	bytePassword2, _ := terminal.ReadPassword(int(syscall.Stdin))
 	fmt.Println("")
 	bytePassword := append(bytePassword1, bytePassword2...)
-	strKey, err := encrypt(bytePassword, Key)
+	strPass, err := encrypt(bytePassword, Key)
+	if err != nil {
+		return err
+	}
+	stw := ObjectName + " " + usr.Username + " " + strPass
+	h := sha256.Sum256([]byte(stw))
+	signature, err := encrypt(h[:], Key)
 	if err != nil {
 		return err
 	}
@@ -221,7 +227,7 @@ func AddPW(AsUser bool, FileName string, ObjectName string) error {
 		return err
 	}
 	defer fp.Close()
-	fp.WriteString(ObjectName + " " + usr.Username + " " + strKey + "\n")
+	fp.WriteString(stw + " " + signature + "\n")
 	fp.Close()
 	return nil
 }
