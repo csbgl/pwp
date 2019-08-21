@@ -1,6 +1,7 @@
 package pwp
 
 import (
+	"bufio"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -130,6 +131,27 @@ func encrypt(data []byte, key []byte) (string, error) {
 
 }
 
+func decrypt(bucket []byte, key []byte) (string, error) {
+	if len(bucket) < 28 {
+		return "", errors.New("decrypt - Length of data is insufficient")
+	}
+	nonce := bucket[0:12]
+	data := bucket[12:]
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return "", errors.New("NewCipher: " + err.Error())
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", errors.New("NewGCM: " + err.Error())
+	}
+	decdata, err := gcm.Open(nil, nonce, data, nil)
+	if err != nil {
+		return "", errors.New("Open: " + err.Error())
+	}
+	return hex.EncodeToString(decdata), nil
+}
+
 func objectExist(ObjectName string, FileName string) (bool, error) {
 	_, err := os.Stat(FileName)
 	if os.IsNotExist(err) {
@@ -144,6 +166,22 @@ func objectExist(ObjectName string, FileName string) (bool, error) {
 		return true, nil
 	}
 	return false, nil
+}
+
+func getObject(ObjectName string, FileName string) (string, error) {
+	fp, err := os.OpenFile(FileName, os.O_RDONLY, 0)
+	if err != nil {
+		return "", err
+	}
+	defer fp.Close()
+	scanner := bufio.NewScanner(fp)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.Split(line, " ")[0] == ObjectName {
+			return line, nil
+		}
+	}
+	return "", errors.New("Object not found")
 }
 
 //Init - Initializes PWP before the first use
@@ -230,4 +268,57 @@ func AddPW(AsUser bool, FileName string, ObjectName string) error {
 	fp.WriteString(stw + " " + signature + "\n")
 	fp.Close()
 	return nil
+}
+
+// GetPW - Decrypt password and returns.
+func GetPW(AsUser bool, FileName string, ObjectName string) (string, error) {
+	opsys := getOS()
+	if FileName == "" {
+		if AsUser {
+			FileName = opsys.LibUserDir + "password"
+		} else {
+			FileName = opsys.LibDir + "password"
+		}
+	}
+	exist, err := objectExist(ObjectName, FileName)
+	if err != nil {
+		return "", err
+	}
+	if !exist {
+		return "", errors.New("Object " + ObjectName + " does not exist")
+	}
+	usr, _ := user.Current()
+	Key, err := getkey(AsUser)
+	if err != nil {
+		return "", err
+	}
+	line, err := getObject(ObjectName, FileName)
+	if err != nil {
+		return "", err
+	}
+	parts := strings.Split(line, " ")
+	bSignature, _ := hex.DecodeString(parts[3])
+	strHash, err := decrypt(bSignature, Key)
+	if err != nil {
+		return "", errors.New("Signature verification: " + err.Error())
+	}
+	stc := strings.Join(parts[0:3], " ")
+	cHash := sha256.Sum256([]byte(stc))
+	if strHash != hex.EncodeToString(cHash[:]) {
+		return "", errors.New("Signature verification failed - data currupted")
+	}
+	if parts[1] != usr.Username {
+		return "", errors.New("GetPW - User: " + usr.Username + " is not authorized to read " + ObjectName)
+	}
+	bytePassword, _ := hex.DecodeString(parts[2])
+	strPass, err := decrypt(bytePassword, Key)
+	if err != nil {
+		return "", errors.New("Password decrypt failed: " + err.Error())
+	}
+	buff, err := hex.DecodeString(strPass)
+	if err != nil {
+		return "", errors.New("Password decode failed: " + err.Error())
+	}
+	return string(buff), nil
+
 }
