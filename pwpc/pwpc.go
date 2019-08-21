@@ -51,9 +51,19 @@ func (c *add) Execute(args []string) error {
 	if err != nil {
 		fmt.Println("Error adding password: ", err)
 	}
-
 	return nil
 }
+
+/*func (c *get) Execute(args []string) error {
+	str, err := pwp.GetPW(c.AsUser, c.FileName, c.Name)
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
+	fmt.Println("Password: " + str)
+	return nil
+}
+*/
 
 func main() {
 	var General general
