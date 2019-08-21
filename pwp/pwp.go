@@ -1,12 +1,24 @@
 package pwp
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"os"
+	"os/exec"
 	"os/user"
+	"regexp"
 	"runtime"
+	"strings"
+	"syscall"
+
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 //OpSys is a struct that contains os dependent settings for PWP
@@ -49,6 +61,35 @@ func exist(path string) bool {
 	return false
 }
 
+func getkey(AsUser bool) ([]byte, error) {
+	StaticPart := make([]byte, 32)
+	Key := make([]byte, 32)
+	opsys := getOS()
+	mID, err := getMachineID(opsys.OSName)
+	if err != nil {
+		return nil, errors.New(err.Error())
+	}
+
+	if AsUser == true {
+		fp, err := os.Open(opsys.LibUserDir + "key.pem")
+		if err != nil {
+			return nil, errors.New(err.Error())
+		}
+		fp.Read(StaticPart)
+	} else {
+		fp, err := os.Open(opsys.LibDir + "key.pem")
+		if err != nil {
+			return nil, errors.New(err.Error())
+		}
+		fp.Read(StaticPart)
+
+	}
+	for i := 0; i < 32; i++ {
+		Key[i] = StaticPart[i] ^ mID[i]
+	}
+	return Key, nil
+}
+
 //IsInitialized : Checks that PWP is initialized or not
 //opsys : OpSys struct
 func IsInitialized(opsys OpSys) bool {
@@ -56,6 +97,53 @@ func IsInitialized(opsys OpSys) bool {
 		return false
 	}
 	return true
+}
+
+func getMachineID(os string) ([]byte, error) {
+	var result string
+	switch os {
+	case osx:
+		re := regexp.MustCompile("UUID.*")
+		out, err := exec.Command("ioreg", "-rd1", "-c", "IOPlatformExpertDevice").Output()
+		if err != nil {
+			return nil, errors.New(err.Error())
+		}
+		result = re.FindString(string(out))
+	}
+	byteresult := sha256.Sum256([]byte(result))
+	return byteresult[:], nil
+}
+
+func encrypt(data []byte, key []byte) (string, error) {
+	nonce := make([]byte, 12)
+	io.ReadFull(rand.Reader, nonce)
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return "", err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", err
+	}
+	encdata := gcm.Seal(nil, nonce, data, nil)
+	return hex.EncodeToString(append(nonce, encdata...)), nil
+
+}
+
+func objectExist(ObjectName string, FileName string) (bool, error) {
+	_, err := os.Stat(FileName)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	b, err := ioutil.ReadFile(FileName)
+	if err != nil {
+		return false, errors.New("objectExist - " + err.Error())
+	}
+	s := string(b)
+	if strings.Contains(s, ObjectName) {
+		return true, nil
+	}
+	return false, nil
 }
 
 //Init - Initializes PWP before the first use
@@ -91,5 +179,49 @@ func Init(asUser bool) error {
 		}
 	}
 
+	return nil
+}
+
+// AddPW - Get password from STDIN, encrypt and write to file
+func AddPW(AsUser bool, FileName string, ObjectName string) error {
+	opsys := getOS()
+	if FileName == "" {
+		if AsUser {
+			FileName = opsys.LibUserDir + "password"
+		} else {
+			FileName = opsys.LibDir + "password"
+		}
+	}
+	exist, err := objectExist(ObjectName, FileName)
+	if err != nil {
+		return err
+	}
+	if exist {
+		return errors.New("Object " + ObjectName + " is already exist")
+	}
+	usr, _ := user.Current()
+	Key, err := getkey(AsUser)
+	if err != nil {
+		return err
+	}
+
+	fmt.Print("Enter 1st part: ")
+	bytePassword1, _ := terminal.ReadPassword(int(syscall.Stdin))
+	fmt.Println("")
+	fmt.Print("Enter 2nd part: ")
+	bytePassword2, _ := terminal.ReadPassword(int(syscall.Stdin))
+	fmt.Println("")
+	bytePassword := append(bytePassword1, bytePassword2...)
+	strKey, err := encrypt(bytePassword, Key)
+	if err != nil {
+		return err
+	}
+	fp, err := os.OpenFile(FileName, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0600)
+	if err != nil {
+		return err
+	}
+	defer fp.Close()
+	fp.WriteString(ObjectName + " " + usr.Username + " " + strKey + "\n")
+	fp.Close()
 	return nil
 }
