@@ -123,7 +123,7 @@ func getMachineID(_os string) ([]byte, error) {
 
 	case linux:
 		b, err := ioutil.ReadFile("/var/lib/dbus/machine-id")
-		if os.IsNotExist(err) {
+		if err != nil && os.IsNotExist(err) {
 			b, err = ioutil.ReadFile("/etc/machine-id")
 			if err != nil {
 				return nil, err
