@@ -19,6 +19,11 @@ type add struct {
 	Name     string `short:"n" long:"name" value-name:"NAME" description:"NAME identifying the object" required:"yes"`
 	FileName string `short:"f" long:"file" value-name:"FN" description:"File name where the passwords are stored"`
 }
+type del struct {
+	AsUser   bool   `short:"r" long:"asuser" description:"Initialize as user"`
+	Name     string `short:"n" long:"name" value-name:"NAME" description:"NAME identifying the object" required:"yes"`
+	FileName string `short:"f" long:"file" value-name:"FN" description:"File name where the passwords are stored"`
+}
 
 func exist(path string) bool {
 	if _, err := os.Stat(path); err == nil {
@@ -54,6 +59,14 @@ func (c *add) Execute(args []string) error {
 	return nil
 }
 
+func (c *del) Execute(args []string) error {
+	err := pwp.DeletePW(c.AsUser, c.FileName, c.Name)
+	if err != nil {
+		fmt.Println("Error deleting password: ", err)
+	}
+	return nil
+}
+
 /*func (c *get) Execute(args []string) error {
 	str, err := pwp.GetPW(c.AsUser, c.FileName, c.Name)
 	if err != nil {
@@ -70,8 +83,9 @@ func main() {
 	parser := flags.NewNamedParser("pwpc", flags.Default)
 	parser.AddCommand("init", "Initiallize PWP storage", "Initialize PWP storage", new(i))
 	parser.AddCommand("add", "Add password", "Add password to PWP storage", new(add))
+	parser.AddCommand("del", "Delete password", "Deletes a password object from PWP storage", new(del))
 	parser.AddGroup("General", "General options", &General)
-	args, err := parser.Parse()
+	_, err := parser.Parse()
 	if err != nil {
 		if flagsErr, ok := err.(*flags.Error); ok && flagsErr.Type == flags.ErrHelp {
 			os.Exit(0)
@@ -79,6 +93,4 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	fmt.Println(args)
-
 }
