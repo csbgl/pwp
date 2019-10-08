@@ -343,3 +343,62 @@ func GetPW(AsUser bool, FileName string, ObjectName string) (string, error) {
 	return string(buff), nil
 
 }
+
+// DeletePW - deletes a password entry
+func DeletePW(AsUser bool, FileName string, ObjectName string) error {
+	opsys := getOS()
+	var lines []string
+	var found bool
+	usr, _ := user.Current()
+
+	if FileName == "" {
+		if AsUser {
+			FileName = opsys.LibUserDir + "password"
+		} else {
+			FileName = opsys.LibDir + "password"
+		}
+	}
+	exist, err := objectExist(ObjectName, FileName)
+	if err != nil {
+		return err
+	}
+	if !exist {
+		return errors.New("Object " + ObjectName + " does not exist")
+	}
+	f, err := os.OpenFile(FileName, os.O_RDWR, 0)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		line := sc.Text()
+		ments := strings.Split(line, " ")
+		if ments[0] == ObjectName {
+			if ments[1] == usr.Username {
+				found = true
+				continue
+			} else {
+				f.Close()
+				return errors.New("Permission denied for object: " + ObjectName)
+			}
+		} else {
+			lines = append(lines, line)
+		}
+
+	}
+	f.Close()
+	if found != true {
+		return errors.New("No such object found: " + ObjectName)
+	}
+	f, err = os.OpenFile(FileName, os.O_RDWR|os.O_TRUNC, 0)
+	wr := bufio.NewWriter(f)
+	for _, line := range lines {
+		fmt.Println(" - " + line)
+		wr.WriteString(line)
+	}
+	wr.Flush()
+	f.Close()
+	return nil
+}
