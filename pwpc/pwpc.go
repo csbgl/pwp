@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -22,6 +23,10 @@ type add struct {
 type del struct {
 	AsUser   bool   `short:"r" long:"asuser" description:"Initialize as user"`
 	Name     string `short:"n" long:"name" value-name:"NAME" description:"NAME identifying the object" required:"yes"`
+	FileName string `short:"f" long:"file" value-name:"FN" description:"File name where the passwords are stored"`
+}
+type list struct {
+	AsUser   bool   `short:"r" long:"asuser" description:"Initialize as user"`
 	FileName string `short:"f" long:"file" value-name:"FN" description:"File name where the passwords are stored"`
 }
 
@@ -62,7 +67,15 @@ func (c *add) Execute(args []string) error {
 func (c *del) Execute(args []string) error {
 	err := pwp.DeletePW(c.AsUser, c.FileName, c.Name)
 	if err != nil {
-		fmt.Println("Error deleting password: ", err)
+		return errors.New("Error deleting password: " + err.Error())
+	}
+	return nil
+}
+
+func (c *list) Execute(args []string) error {
+	err := pwp.ListPW(c.AsUser, c.FileName)
+	if err != nil {
+		return errors.New("Error listing passwords: " + err.Error())
 	}
 	return nil
 }
@@ -84,6 +97,7 @@ func main() {
 	parser.AddCommand("init", "Initiallize PWP storage", "Initialize PWP storage", new(i))
 	parser.AddCommand("add", "Add password", "Add password to PWP storage", new(add))
 	parser.AddCommand("del", "Delete password", "Deletes a password object from PWP storage", new(del))
+	parser.AddCommand("list", "List passwords", "List all the passwords that recorded in the file FN", new(list))
 	parser.AddGroup("General", "General options", &General)
 	_, err := parser.Parse()
 	if err != nil {

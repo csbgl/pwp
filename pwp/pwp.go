@@ -19,6 +19,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/olekukonko/tablewriter"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
@@ -291,7 +292,7 @@ func AddPW(AsUser bool, FileName string, ObjectName string) error {
 	return nil
 }
 
-// GetPW - Decrypt password and returns.
+// GetPW - Decrypt password and returns decrypted one.
 func GetPW(AsUser bool, FileName string, ObjectName string) (string, error) {
 	opsys := getOS()
 	if FileName == "" {
@@ -395,10 +396,35 @@ func DeletePW(AsUser bool, FileName string, ObjectName string) error {
 	f, err = os.OpenFile(FileName, os.O_RDWR|os.O_TRUNC, 0)
 	wr := bufio.NewWriter(f)
 	for _, line := range lines {
-		fmt.Println(" - " + line)
 		wr.WriteString(line)
 	}
 	wr.Flush()
 	f.Close()
+	return nil
+}
+
+// ListPW - list passwords that stored in PWP storage
+func ListPW(AsUser bool, FileName string) error {
+	opsys := getOS()
+
+	if FileName == "" {
+		if AsUser {
+			FileName = opsys.LibUserDir + "password"
+		} else {
+			FileName = opsys.LibDir + "password"
+		}
+	}
+	f, err := os.OpenFile(FileName, os.O_RDONLY, 0)
+	if err != nil {
+		return errors.New("Cannot open file: " + FileName)
+	}
+	sc := bufio.NewScanner(f)
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetHeader([]string{"Obj. name", "User"})
+	for sc.Scan() {
+		parts := strings.Split(sc.Text(), " ")
+		table.Append([]string{parts[0], parts[1]})
+	}
+	table.Render()
 	return nil
 }
