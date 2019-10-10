@@ -44,13 +44,13 @@ func (c *i) Execute(args []string) error {
 		fmt.Println("Initializing PWP in User mode")
 		err := pwp.Init(true)
 		if err != nil {
-			fmt.Println("Error initializing PWP: ", err)
+			return errors.New("Error initializing PWP: " + err.Error())
 		}
 	} else {
 		fmt.Println("Initializing PWP in system-wide mode")
 		err := pwp.Init(false)
 		if err != nil {
-			fmt.Println("Error initializing PWP: ", err)
+			return errors.New("Error initializing PWP: " + err.Error())
 		}
 	}
 	return nil
@@ -59,7 +59,7 @@ func (c *i) Execute(args []string) error {
 func (c *add) Execute(args []string) error {
 	err := pwp.AddPW(c.AsUser, c.FileName, c.Name)
 	if err != nil {
-		fmt.Println("Error adding password: ", err)
+		return errors.New("Error adding password: " + err.Error())
 	}
 	return nil
 }
