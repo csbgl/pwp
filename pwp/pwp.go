@@ -58,7 +58,12 @@ func getOS() OpSys {
 		opsys.LibUserDir = usr.HomeDir + "/.pwp/"
 		opsys.PrivUser = "root"
 		opsys.CurrentUser = usr.Username
-
+	case win:
+		opsys.OSName = win
+		opsys.LibDir = `C:\apps_srv\pwp\`
+		opsys.LibUserDir = usr.HomeDir + `\pwp\`
+		opsys.PrivUser = "Administrator"
+		opsys.CurrentUser = usr.Username
 	}
 	return opsys
 }
