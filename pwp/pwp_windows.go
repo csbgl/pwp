@@ -1,4 +1,4 @@
-package pwp
+package pwp_windows
 
 import (
 	"bufio"
