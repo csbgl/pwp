@@ -21,7 +21,6 @@ import (
 
 	"github.com/olekukonko/tablewriter"
 	"golang.org/x/crypto/ssh/terminal"
-	"golang.org/x/sys/windows/registry"
 )
 
 //OpSys is a struct that contains os dependent settings for PWP
@@ -140,17 +139,6 @@ func getMachineID(_os string) ([]byte, error) {
 		}
 		byteresult = sha256.Sum256(b)
 
-	case win:
-		key, err := registry.OpenKey(registry.LOCAL_MACHINE, `SOFTWARE\Microsoft\Cryptography`, registry.QUERY_VALUE|registry.WOW64_64KEY)
-		if err != nil {
-			return nil, err
-		}
-		defer key.Close()
-		s, _, err := key.GetStringValue("MachineGuid")
-		if err != nil {
-			return nil, err
-		}
-		byteresult = sha256.Sum256([]byte(s))
 	}
 	return byteresult[:], nil
 }
