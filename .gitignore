@@ -1,4 +1,5 @@
 /pwp/*
 !/pwp/*.go
+!/pwp/windows/*.go
 /pwpc/*
 !/pwpc/*.go
