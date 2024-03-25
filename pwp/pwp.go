@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"os/user"
@@ -23,11 +22,11 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 )
 
-//OpSys is a struct that contains os dependent settings for PWP
-//OSName : Operating system name
-//LibDir : PWP library dir
-//LibUserDir : PWP user lib dir
-//PrivUser : Username of the root/admin/whatever
+// OpSys is a struct that contains os dependent settings for PWP
+// OSName : Operating system name
+// LibDir : PWP library dir
+// LibUserDir : PWP user lib dir
+// PrivUser : Username of the root/admin/whatever
 type OpSys struct {
 	OSName      string
 	LibDir      string
@@ -105,8 +104,8 @@ func getkey(AsUser bool) ([]byte, error) {
 	return Key, nil
 }
 
-//IsInitialized : Checks that PWP is initialized or not
-//opsys : OpSys struct
+// IsInitialized : Checks that PWP is initialized or not
+// opsys : OpSys struct
 func IsInitialized(opsys OpSys) bool {
 	if !exist(opsys.LibDir+"key.pem") && !exist(opsys.LibUserDir+"key.pem") {
 		return false
@@ -128,9 +127,9 @@ func getMachineID(_os string) ([]byte, error) {
 		byteresult = sha256.Sum256([]byte(result))
 
 	case linux:
-		b, err := ioutil.ReadFile("/var/lib/dbus/machine-id")
+		b, err := os.ReadFile("/var/lib/dbus/machine-id")
 		if err != nil && os.IsNotExist(err) {
-			b, err = ioutil.ReadFile("/etc/machine-id")
+			b, err = os.ReadFile("/etc/machine-id")
 			if err != nil {
 				return nil, err
 			}
@@ -185,7 +184,7 @@ func objectExist(ObjectName string, FileName string) (bool, error) {
 	if os.IsNotExist(err) {
 		return false, nil
 	}
-	b, err := ioutil.ReadFile(FileName)
+	b, err := os.ReadFile(FileName)
 	if err != nil {
 		return false, errors.New("objectExist - " + err.Error())
 	}
@@ -212,8 +211,8 @@ func getObject(ObjectName string, FileName string) (string, error) {
 	return "", errors.New("Object not found")
 }
 
-//Init - Initializes PWP before the first use
-//asUser : indicates that init should be done in usermode (no root)
+// Init - Initializes PWP before the first use
+// asUser : indicates that init should be done in usermode (no root)
 func Init(asUser bool) error {
 	sp := make([]byte, 32)
 	rand.Read(sp)
