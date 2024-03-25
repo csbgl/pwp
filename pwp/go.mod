@@ -1,4 +1,4 @@
-module github.com/csbgl/pwp/pwp v2.0.0
+module github.com/csbgl/pwp/pwp v1.0.0
 
 go 1.20
 
