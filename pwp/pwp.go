@@ -84,7 +84,7 @@ func getkey(AsUser bool) ([]byte, error) {
 		return nil, errors.New(err.Error())
 	}
 
-	if AsUser == true {
+	if AsUser {
 		fp, err := os.Open(opsys.LibUserDir + "key.pem")
 		if err != nil {
 			return nil, errors.New(err.Error())
@@ -208,7 +208,7 @@ func getObject(ObjectName string, FileName string) (string, error) {
 			return line, nil
 		}
 	}
-	return "", errors.New("Object not found")
+	return "", errors.New("object not found")
 }
 
 // Init - Initializes PWP before the first use
@@ -219,10 +219,10 @@ func Init(asUser bool) error {
 	opsys := getOS()
 	fmt.Printf("Start initialization. OS: %s, User: %s\n", opsys.OSName, opsys.CurrentUser)
 	if !asUser && opsys.CurrentUser != opsys.PrivUser {
-		return errors.New("You need to be root/admin to init PWP system-wide")
+		return errors.New("you need to be root/admin to init PWP system-wide")
 	}
 	if IsInitialized(opsys) {
-		return errors.New("PWP has already been initialized")
+		return errors.New("module PWP has already been initialized")
 	}
 
 	if asUser {
@@ -332,7 +332,7 @@ func GetPW(AsUser bool, FileName string, ObjectName string) (string, error) {
 	stc := strings.Join(parts[0:3], " ")
 	cHash := sha256.Sum256([]byte(stc))
 	if strHash != hex.EncodeToString(cHash[:]) {
-		return "", errors.New("Signature verification failed - data currupted")
+		return "", errors.New("signature verification failed - data currupted")
 	}
 	if parts[1] != usr.Username {
 		return "", errors.New("GetPW - User: " + usr.Username + " is not authorized to read " + ObjectName)
@@ -395,10 +395,10 @@ func DeletePW(AsUser bool, FileName string, ObjectName string) error {
 
 	}
 	f.Close()
-	if found != true {
+	if found {
 		return errors.New("No such object found: " + ObjectName)
 	}
-	f, err = os.OpenFile(FileName, os.O_RDWR|os.O_TRUNC, 0)
+	f, _ = os.OpenFile(FileName, os.O_RDWR|os.O_TRUNC, 0)
 	wr := bufio.NewWriter(f)
 	for _, line := range lines {
 		wr.WriteString(line)
