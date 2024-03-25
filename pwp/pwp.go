@@ -19,7 +19,7 @@ import (
 	"syscall"
 
 	"github.com/olekukonko/tablewriter"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 // OpSys is a struct that contains os dependent settings for PWP
@@ -271,10 +271,10 @@ func AddPW(AsUser bool, FileName string, ObjectName string) error {
 	}
 
 	fmt.Print("Enter 1st part: ")
-	bytePassword1, _ := terminal.ReadPassword(int(syscall.Stdin))
+	bytePassword1, _ := term.ReadPassword(int(syscall.Stdin))
 	fmt.Println("")
 	fmt.Print("Enter 2nd part: ")
-	bytePassword2, _ := terminal.ReadPassword(int(syscall.Stdin))
+	bytePassword2, _ := term.ReadPassword(int(syscall.Stdin))
 	fmt.Println("")
 	bytePassword := append(bytePassword1, bytePassword2...)
 	strPass, err := encrypt(bytePassword, Key)
