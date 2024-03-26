@@ -19,6 +19,7 @@ import (
 	"syscall"
 
 	"github.com/olekukonko/tablewriter"
+	"golang.org/x/crypto/argon2"
 	"golang.org/x/term"
 )
 
@@ -75,9 +76,11 @@ func exist(path string) bool {
 	return false
 }
 
+// getkey : derives a key from machine ID
+// AsUser : indicates that init should be done in usermode (no root)
 func getkey(AsUser bool) ([]byte, error) {
 	StaticPart := make([]byte, 32)
-	Key := make([]byte, 32)
+	//Key := make([]byte, 32)
 	opsys := getOS()
 	mID, err := getMachineID(opsys.OSName)
 	if err != nil {
@@ -98,9 +101,7 @@ func getkey(AsUser bool) ([]byte, error) {
 		fp.Read(StaticPart)
 
 	}
-	for i := 0; i < 32; i++ {
-		Key[i] = StaticPart[i] ^ mID[i]
-	}
+	Key := argon2.Key(mID, StaticPart, 3, 32*1024, 4, 32)
 	return Key, nil
 }
 
