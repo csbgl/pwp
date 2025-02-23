@@ -19,6 +19,7 @@ import (
 	"syscall"
 
 	"github.com/olekukonko/tablewriter"
+	"golang.org/x/crypto/argon2"
 	"golang.org/x/term"
 )
 
@@ -75,9 +76,11 @@ func exist(path string) bool {
 	return false
 }
 
+// getkey : derives a key from machine ID
+// AsUser : indicates that init should be done in usermode (no root)
 func getkey(AsUser bool) ([]byte, error) {
 	StaticPart := make([]byte, 32)
-	Key := make([]byte, 32)
+	//Key := make([]byte, 32)
 	opsys := getOS()
 	mID, err := getMachineID(opsys.OSName)
 	if err != nil {
@@ -98,9 +101,7 @@ func getkey(AsUser bool) ([]byte, error) {
 		fp.Read(StaticPart)
 
 	}
-	for i := 0; i < 32; i++ {
-		Key[i] = StaticPart[i] ^ mID[i]
-	}
+	Key := argon2.Key(mID, StaticPart, 3, 32*1024, 4, 32)
 	return Key, nil
 }
 
@@ -248,7 +249,7 @@ func Init(asUser bool) error {
 }
 
 // AddPW - Get password from STDIN, encrypt and write to file
-func AddPW(AsUser bool, FileName string, ObjectName string) error {
+func AddPW(AsUser bool, FileName string, ObjectName string, ProcessName string) error {
 	opsys := getOS()
 	if FileName == "" {
 		if AsUser {
@@ -281,7 +282,7 @@ func AddPW(AsUser bool, FileName string, ObjectName string) error {
 	if err != nil {
 		return err
 	}
-	stw := ObjectName + " " + usr.Username + " " + strPass
+	stw := ObjectName + " " + usr.Username + " " + strPass + " " + ProcessName
 	h := sha256.Sum256([]byte(stw))
 	signature, err := encrypt(h[:], Key)
 	if err != nil {
@@ -298,7 +299,7 @@ func AddPW(AsUser bool, FileName string, ObjectName string) error {
 }
 
 // GetPW - Decrypt password and returns decrypted one.
-func GetPW(AsUser bool, FileName string, ObjectName string) (string, error) {
+func GetPW(AsUser bool, FileName string, ObjectName string, ProcessName string) (string, error) {
 	opsys := getOS()
 	if FileName == "" {
 		if AsUser {
@@ -336,6 +337,9 @@ func GetPW(AsUser bool, FileName string, ObjectName string) (string, error) {
 	}
 	if parts[1] != usr.Username {
 		return "", errors.New("GetPW - User: " + usr.Username + " is not authorized to read " + ObjectName)
+	}
+	if parts[4] != ProcessName {
+		return "", errors.New("GetPW - Process: " + ProcessName + " is not authorized to read " + ObjectName)
 	}
 	bytePassword, _ := hex.DecodeString(parts[2])
 	strPass, err := decrypt(bytePassword, Key)
