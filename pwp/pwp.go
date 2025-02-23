@@ -249,7 +249,7 @@ func Init(asUser bool) error {
 }
 
 // AddPW - Get password from STDIN, encrypt and write to file
-func AddPW(AsUser bool, FileName string, ObjectName string) error {
+func AddPW(AsUser bool, FileName string, ObjectName string, ProcessName string) error {
 	opsys := getOS()
 	if FileName == "" {
 		if AsUser {
@@ -282,7 +282,7 @@ func AddPW(AsUser bool, FileName string, ObjectName string) error {
 	if err != nil {
 		return err
 	}
-	stw := ObjectName + " " + usr.Username + " " + strPass
+	stw := ObjectName + " " + usr.Username + " " + strPass + " " + ProcessName
 	h := sha256.Sum256([]byte(stw))
 	signature, err := encrypt(h[:], Key)
 	if err != nil {
@@ -299,7 +299,7 @@ func AddPW(AsUser bool, FileName string, ObjectName string) error {
 }
 
 // GetPW - Decrypt password and returns decrypted one.
-func GetPW(AsUser bool, FileName string, ObjectName string) (string, error) {
+func GetPW(AsUser bool, FileName string, ObjectName string, ProcessName string) (string, error) {
 	opsys := getOS()
 	if FileName == "" {
 		if AsUser {
@@ -337,6 +337,9 @@ func GetPW(AsUser bool, FileName string, ObjectName string) (string, error) {
 	}
 	if parts[1] != usr.Username {
 		return "", errors.New("GetPW - User: " + usr.Username + " is not authorized to read " + ObjectName)
+	}
+	if parts[4] != ProcessName {
+		return "", errors.New("GetPW - Process: " + ProcessName + " is not authorized to read " + ObjectName)
 	}
 	bytePassword, _ := hex.DecodeString(parts[2])
 	strPass, err := decrypt(bytePassword, Key)
