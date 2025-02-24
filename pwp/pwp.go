@@ -129,13 +129,15 @@ func getMachineID(_os string) ([]byte, error) {
 
 	case linux:
 		b, err := os.ReadFile("/var/lib/dbus/machine-id")
-		if err != nil && os.IsNotExist(err) {
-			b, err = os.ReadFile("/etc/machine-id")
-			if err != nil {
+		if err != nil {
+			if os.IsNotExist(err) {
+				b, err = os.ReadFile("/etc/machine-id")
+				if err != nil {
+					return nil, err
+				}
+			} else {
 				return nil, err
 			}
-		} else {
-			return nil, err
 		}
 		byteresult = sha256.Sum256(b)
 
@@ -249,7 +251,8 @@ func Init(asUser bool) error {
 }
 
 // AddPW - Get password from STDIN, encrypt and write to file
-func AddPW(AsUser bool, FileName string, ObjectName string, ProcessName string) error {
+func AddPW(AsUser bool, FileName string, ObjectName string, ProcessName string, Password string) error {
+	ProcessName = strings.Replace(ProcessName, " ", "|", -1)
 	opsys := getOS()
 	if FileName == "" {
 		if AsUser {
@@ -271,13 +274,18 @@ func AddPW(AsUser bool, FileName string, ObjectName string, ProcessName string) 
 		return err
 	}
 
-	fmt.Print("Enter 1st part: ")
-	bytePassword1, _ := term.ReadPassword(int(syscall.Stdin))
-	fmt.Println("")
-	fmt.Print("Enter 2nd part: ")
-	bytePassword2, _ := term.ReadPassword(int(syscall.Stdin))
-	fmt.Println("")
-	bytePassword := append(bytePassword1, bytePassword2...)
+	var bytePassword []byte
+	if Password == "" {
+		fmt.Print("Enter 1st part: ")
+		bytePassword1, _ := term.ReadPassword(int(syscall.Stdin))
+		fmt.Println("")
+		fmt.Print("Enter 2nd part: ")
+		bytePassword2, _ := term.ReadPassword(int(syscall.Stdin))
+		fmt.Println("")
+		bytePassword = append(bytePassword1, bytePassword2...)
+	} else {
+		bytePassword = []byte(Password)
+	}
 	strPass, err := encrypt(bytePassword, Key)
 	if err != nil {
 		return err
@@ -300,6 +308,7 @@ func AddPW(AsUser bool, FileName string, ObjectName string, ProcessName string) 
 
 // GetPW - Decrypt password and returns decrypted one.
 func GetPW(AsUser bool, FileName string, ObjectName string, ProcessName string) (string, error) {
+	ProcessName = strings.Replace(ProcessName, " ", "|", -1)
 	opsys := getOS()
 	if FileName == "" {
 		if AsUser {
@@ -325,12 +334,12 @@ func GetPW(AsUser bool, FileName string, ObjectName string, ProcessName string) 
 		return "", err
 	}
 	parts := strings.Split(line, " ")
-	bSignature, _ := hex.DecodeString(parts[3])
+	bSignature, _ := hex.DecodeString(parts[4])
 	strHash, err := decrypt(bSignature, Key)
 	if err != nil {
 		return "", errors.New("Signature verification: " + err.Error())
 	}
-	stc := strings.Join(parts[0:3], " ")
+	stc := strings.Join(parts[0:4], " ")
 	cHash := sha256.Sum256([]byte(stc))
 	if strHash != hex.EncodeToString(cHash[:]) {
 		return "", errors.New("signature verification failed - data currupted")
@@ -338,7 +347,7 @@ func GetPW(AsUser bool, FileName string, ObjectName string, ProcessName string) 
 	if parts[1] != usr.Username {
 		return "", errors.New("GetPW - User: " + usr.Username + " is not authorized to read " + ObjectName)
 	}
-	if parts[4] != ProcessName {
+	if parts[3] != ProcessName {
 		return "", errors.New("GetPW - Process: " + ProcessName + " is not authorized to read " + ObjectName)
 	}
 	bytePassword, _ := hex.DecodeString(parts[2])
@@ -399,7 +408,7 @@ func DeletePW(AsUser bool, FileName string, ObjectName string) error {
 
 	}
 	f.Close()
-	if found {
+	if !found {
 		return errors.New("No such object found: " + ObjectName)
 	}
 	f, _ = os.OpenFile(FileName, os.O_RDWR|os.O_TRUNC, 0)
@@ -429,10 +438,12 @@ func ListPW(AsUser bool, FileName string) error {
 	}
 	sc := bufio.NewScanner(f)
 	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"Obj. name", "User"})
+	table.SetHeader([]string{"Obj. name", "User", "Process"})
 	for sc.Scan() {
 		parts := strings.Split(sc.Text(), " ")
-		table.Append([]string{parts[0], parts[1]})
+		processName := parts[3]
+		processName = strings.Replace(processName, "|", " ", -1)
+		table.Append([]string{parts[0], parts[1], processName})
 	}
 	table.Render()
 	return nil
